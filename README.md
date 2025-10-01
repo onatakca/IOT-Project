@@ -5,10 +5,10 @@ Ideas:
 * **Input**: Two Thingy:52 devices act as **paddles** (one in each hand).
 * **Controls**:
 
-  * **Both paddles moved in synch** = go straight.
+  * **Both paddles moved (in synch)** = go straight.
   * **Only left moved** = turn right.
   * **Only right moved** = turn left.
-  * **No movement or moving randomly** = stop.
+  * **No movement (or moving randomly)** = stop.
 * **Output**: A simple canoe game running on Raspberry Pi (or laptop), displayed on a screen, with obstacles scrolling down to avoid.
 
 ---
