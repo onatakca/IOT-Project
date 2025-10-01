@@ -92,6 +92,7 @@ Both options satisfy “partly ML on-device,” but Option B looks better for th
 
 ## 7. User Interface (Demo)
 
+* Set the left and right thingy in the beginning 
 * Show the canoe moving on a projected screen.
 * Two students paddle in front of the class with Thingies.
 * Everyone sees the canoe dodge obstacles live.
@@ -111,7 +112,7 @@ Both options satisfy “partly ML on-device,” but Option B looks better for th
 
 1. Show Thingy as paddle → shake = paddle detection (LED blink as feedback).
 2. Open game on screen → canoe at bottom.
-3. Two people paddle → canoe moves straight, left, right.
+3. One person paddle → canoe moves straight, left, right.
 4. Obstacles appear → try to survive!
 5. Score displayed, collision ends game.
 
