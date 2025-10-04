@@ -1,4 +1,5 @@
-Ideas:
+<img width="2684" height="1176" alt="image" src="https://github.com/user-attachments/assets/71c6a2b1-13e1-476c-8f2d-dccf9607452a" />
+
 
 ## 1. Core Concept
 
