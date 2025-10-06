@@ -514,7 +514,7 @@ def main():
     print("  LEFT  = Left paddle only (go UP and turn RIGHT)")
     print("  RIGHT = Right paddle only (go UP and turn LEFT)")
     print("  No key = Drift DOWN with current")
-    print("")
+    print(" ")
     print("Goal: Travel 5000m without hitting banks or obstacles!")
     print("Keep rowing to fight the current or you'll drift to the bottom!")
     print("If you hit the bottom of the screen, you lose!")
