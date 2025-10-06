@@ -507,15 +507,6 @@ class Game:
         sys.exit()
 
 def main():
-    """
-    Test the game with keyboard controls:
-    - UP arrow = Both paddles (go STRAIGHT UP)
-    - LEFT arrow = Left paddle only (go UP and turn RIGHT)
-    - RIGHT arrow = Right paddle only (go UP and turn LEFT)
-    - Release all = drift down with current
-    - R = restart after game over
-    - Q = quit
-    """
     game = Game()
     print("=== CANOE ROWING GAME ===")
     print("Controls:")
