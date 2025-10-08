@@ -24,7 +24,7 @@ BROWN = (101, 67, 33)
 LIGHT_GREEN = (34, 139, 34)
 
 # Game settings
-CANOE_WIDTH = 60
+CANOE_WIDTH = 55  # Adjusted width
 CANOE_HEIGHT = 100
 CANOE_SPEED = 5
 UPSTREAM_SPEED = 3  # How fast canoe moves up when rowing
@@ -43,8 +43,27 @@ class River:
         self.segments = []
         self.segment_height = 5  # Smaller segments for smoother curves
         self.scroll_offset = 0
+        self.total_scroll = 0  # Never wraps - accumulates forever for water animation
         self.center_offset = SCREEN_WIDTH // 2
         self.curve_phase = 0  # Phase for sinusoidal curves
+        self.current_scroll_speed = 0  # Track current river scroll speed
+
+        # Load textures and scale them to tile size
+        WATER_TILE_SIZE = 128  # Size for water tiles
+        GRASS_TILE_SIZE = 192  # Slightly larger for grass tiles
+
+        water_original = pygame.image.load('images/water.png').convert_alpha()
+        grass_original = pygame.image.load('images/grass.png').convert_alpha()
+
+        # Scale down to tileable size
+        self.water_texture = pygame.transform.scale(water_original, (WATER_TILE_SIZE, WATER_TILE_SIZE))
+        self.grass_texture = pygame.transform.scale(grass_original, (GRASS_TILE_SIZE, GRASS_TILE_SIZE))
+
+        # Get texture dimensions
+        self.water_texture_width = WATER_TILE_SIZE
+        self.water_texture_height = WATER_TILE_SIZE
+        self.grass_texture_width = GRASS_TILE_SIZE
+        self.grass_texture_height = GRASS_TILE_SIZE
 
         # Generate initial river segments
         for i in range(SCREEN_HEIGHT // self.segment_height + 20):
@@ -69,7 +88,9 @@ class River:
 
     def update(self, speed):
         """Scroll the river"""
+        self.current_scroll_speed = speed  # Store for water animation adjustment
         self.scroll_offset += speed
+        self.total_scroll += speed  # Accumulate forever, never wraps
 
         # Scrolling forward (river moves down on screen)
         while self.scroll_offset >= self.segment_height:
@@ -111,17 +132,19 @@ class River:
 
     def draw(self, screen):
         """Draw the river with curved banks"""
-        # Draw water (full screen)
-        screen.fill(DARK_BLUE)
+        # Water flow with partial compensation to reduce extremes
+        # NOTE: Good baseline values that were close: base // 10, compensation * 0.5
+        #       (good speed when drifting/moving down, slightly slow when paddling/moving up)
+        base_speed = pygame.time.get_ticks() // 10  # Faster base speed
+        speed_compensation = int(self.total_scroll * 0.6)  # Slightly stronger compensation for more speed when paddling up
+        water_offset = (base_speed - speed_compensation) % self.water_texture_height
 
-        # Draw animated water lines
-        for i in range(0, SCREEN_HEIGHT, 30):
-            offset = (pygame.time.get_ticks() // 10) % 30
-            pygame.draw.line(screen, BLUE,
-                           (0, i + offset),
-                           (SCREEN_WIDTH, i + offset), 2)
+        # Draw water texture
+        for tile_y in range(-self.water_texture_height, SCREEN_HEIGHT + self.water_texture_height, self.water_texture_height):
+            for tile_x in range(0, SCREEN_WIDTH, self.water_texture_width):
+                screen.blit(self.water_texture, (tile_x, tile_y + water_offset))
 
-        # Draw river banks
+        # Draw river banks with grass texture
         for i in range(len(self.segments) - 1):
             # Negate scroll_offset: positive scroll moves river DOWN, negative moves UP
             y1 = i * self.segment_height - self.scroll_offset
@@ -140,24 +163,43 @@ class River:
             left1 = center1 - RIVER_WIDTH // 2
             left2 = center2 - RIVER_WIDTH // 2
 
-            # Draw left shore (green grass)
+            # Draw left shore with grass texture
             if left1 > 0:
-                points = [(0, y1), (left1, y1), (left2, y2), (0, y2)]
-                pygame.draw.polygon(screen, LIGHT_GREEN, points)
-                # Draw bank edge
-                pygame.draw.line(screen, BROWN, (left1, y1), (left2, y2), 3)
+                # Create clipping rect for left bank
+                bank_rect = pygame.Rect(0, int(y1), int(left1), max(1, int(y2 - y1)))
+                screen.set_clip(bank_rect)
+
+                # Tile grass texture - use total_scroll to avoid wrapping glitches
+                grass_offset = int(-self.total_scroll) % self.grass_texture_height
+                for grass_y in range(-self.grass_texture_height, SCREEN_HEIGHT + self.grass_texture_height, self.grass_texture_height):
+                    for grass_x in range(0, int(left1) + self.grass_texture_width, self.grass_texture_width):
+                        screen.blit(self.grass_texture, (grass_x, grass_y + grass_offset))
+
+                # Remove clipping
+                screen.set_clip(None)
+                # Draw bank edge (reduced width)
+                pygame.draw.line(screen, BROWN, (left1, y1), (left2, y2), 2)
 
             # Right bank
             right1 = center1 + RIVER_WIDTH // 2
             right2 = center2 + RIVER_WIDTH // 2
 
-            # Draw right shore (green grass)
+            # Draw right shore with grass texture
             if right1 < SCREEN_WIDTH:
-                points = [(right1, y1), (SCREEN_WIDTH, y1),
-                         (SCREEN_WIDTH, y2), (right2, y2)]
-                pygame.draw.polygon(screen, LIGHT_GREEN, points)
-                # Draw bank edge
-                pygame.draw.line(screen, BROWN, (right1, y1), (right2, y2), 3)
+                # Create clipping rect for right bank
+                bank_rect = pygame.Rect(int(right1), int(y1), SCREEN_WIDTH - int(right1), max(1, int(y2 - y1)))
+                screen.set_clip(bank_rect)
+
+                # Tile grass texture - use total_scroll to avoid wrapping glitches
+                grass_offset = int(-self.total_scroll) % self.grass_texture_height
+                for grass_y in range(-self.grass_texture_height, SCREEN_HEIGHT + self.grass_texture_height, self.grass_texture_height):
+                    for grass_x in range(int(right1) - self.grass_texture_width, SCREEN_WIDTH + self.grass_texture_width, self.grass_texture_width):
+                        screen.blit(self.grass_texture, (grass_x, grass_y + grass_offset))
+
+                # Remove clipping
+                screen.set_clip(None)
+                # Draw bank edge (reduced width)
+                pygame.draw.line(screen, BROWN, (right1, y1), (right2, y2), 2)
 
     def check_collision(self, canoe_rect):
         """Check if canoe collides with river banks"""
@@ -206,6 +248,14 @@ class Canoe:
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def get_collision_rect(self):
+        """Smaller hitbox for more accurate collision detection"""
+        # Shrink hitbox by 30% on all sides
+        margin_x = self.width * 0.15
+        margin_y = self.height * 0.15
+        return pygame.Rect(self.x + margin_x, self.y + margin_y,
+                          self.width - margin_x * 2, self.height - margin_y * 2)
 
 class Obstacle:
     def __init__(self, x, y, rock_img=None):
@@ -295,7 +345,7 @@ class Game:
                           SCREEN_HEIGHT // 2,  # Start at middle of screen
                           self.boat_img)
         self.obstacles = []
-        self.distance = 0  # Track progress
+        self.points = 0  # Track score by obstacles passed
         self.game_over = False
         self.game_won = False
         self.last_spawn_time = pygame.time.get_ticks()
@@ -316,7 +366,7 @@ class Game:
             self.obstacles.append(Obstacle(x, -OBSTACLE_HEIGHT, self.rock_img))
         
     def check_collision(self):
-        canoe_rect = self.canoe.get_rect()
+        canoe_rect = self.canoe.get_collision_rect()  # Use smaller hitbox
         for obstacle in self.obstacles:
             if canoe_rect.colliderect(obstacle.get_rect()):
                 return True
@@ -345,16 +395,12 @@ class Game:
             # Negative scroll makes river move DOWN on screen
             river_scroll_speed = -UPSTREAM_SPEED
             self.river.update(river_scroll_speed)
-            self.distance += UPSTREAM_SPEED
         else:
             # Drift DOWN (current pushing down) - river banks should move UP
             self.canoe.y += DOWNSTREAM_DRIFT
             # Positive scroll makes river move UP on screen
             river_scroll_speed = DOWNSTREAM_DRIFT
             self.river.update(river_scroll_speed)
-            self.distance -= DOWNSTREAM_DRIFT
-            # Can't go below 0
-            self.distance = max(0, self.distance)
 
         # Check if canoe hit the bottom of the screen (game over)
         if self.canoe.y + self.canoe.height >= SCREEN_HEIGHT:
@@ -363,6 +409,10 @@ class Game:
         # Update obstacles with river scroll
         for obstacle in self.obstacles[:]:
             obstacle.update(river_scroll_speed)
+            # Award points if obstacle passed the canoe
+            if obstacle.y > self.canoe.y + self.canoe.height and not hasattr(obstacle, 'counted'):
+                self.points += 1
+                obstacle.counted = True  # Mark as counted so we don't count it again
             if obstacle.is_off_screen():
                 self.obstacles.remove(obstacle)
 
@@ -377,12 +427,8 @@ class Game:
             self.game_over = True
 
         # Check collision with river banks
-        if self.river.check_collision(self.canoe.get_rect()):
+        if self.river.check_collision(self.canoe.get_collision_rect()):
             self.game_over = True
-
-        # Check if player reached the goal
-        if self.distance >= GOAL_DISTANCE:
-            self.game_won = True
     
     def draw(self):
         # Draw river
@@ -397,51 +443,34 @@ class Game:
         for obstacle in self.obstacles:
             obstacle.draw(self.screen)
 
-        # Draw distance progress bar
-        bar_width = 300
-        bar_height = 25
-        bar_x = SCREEN_WIDTH // 2 - bar_width // 2
-        bar_y = 50
-        progress = min(self.distance / GOAL_DISTANCE, 1.0)
-
-        # Background bar
-        pygame.draw.rect(self.screen, GRAY, (bar_x, bar_y, bar_width, bar_height))
-        # Progress bar
-        pygame.draw.rect(self.screen, GREEN, (bar_x, bar_y, bar_width * progress, bar_height))
-        # Border
-        pygame.draw.rect(self.screen, BLACK, (bar_x, bar_y, bar_width, bar_height), 2)
-
-        # Distance text
-        font = pygame.font.Font(None, 24)
-        distance_text = font.render(f"{int(self.distance)}/{GOAL_DISTANCE}m", True, WHITE)
-        text_rect = distance_text.get_rect(center=(SCREEN_WIDTH // 2, bar_y + bar_height // 2))
-        # Add black outline
-        outline_text = font.render(f"{int(self.distance)}/{GOAL_DISTANCE}m", True, BLACK)
-        for offset in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+        # Draw points score
+        font = pygame.font.Font(None, 48)
+        points_text = font.render(f"Points: {self.points}", True, WHITE)
+        text_rect = points_text.get_rect(center=(SCREEN_WIDTH // 2, 50))
+        # Add black outline for visibility
+        outline_text = font.render(f"Points: {self.points}", True, BLACK)
+        for offset in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
             self.screen.blit(outline_text, (text_rect.x + offset[0], text_rect.y + offset[1]))
-        self.screen.blit(distance_text, text_rect)
+        self.screen.blit(points_text, text_rect)
         
-        # Draw game over/won screen
-        if self.game_over or self.game_won:
+        # Draw game over screen
+        if self.game_over:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
             overlay.set_alpha(200)
             overlay.fill(BLACK)
             self.screen.blit(overlay, (0, 0))
 
             game_over_font = pygame.font.Font(None, 72)
-            if self.game_won:
-                title_text = game_over_font.render("YOU WIN!", True, GREEN)
-            else:
-                title_text = game_over_font.render("GAME OVER!", True, RED)
+            title_text = game_over_font.render("GAME OVER!", True, RED)
             title_rect = title_text.get_rect(
                 center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
             self.screen.blit(title_text, title_rect)
 
-            distance_font = pygame.font.Font(None, 36)
-            distance_msg = distance_font.render(f"Distance: {int(self.distance)}m", True, WHITE)
-            distance_rect = distance_msg.get_rect(
+            score_font = pygame.font.Font(None, 48)
+            score_msg = score_font.render(f"Final Score: {self.points} points", True, WHITE)
+            score_rect = score_msg.get_rect(
                 center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
-            self.screen.blit(distance_msg, distance_rect)
+            self.screen.blit(score_msg, score_rect)
 
             restart_font = pygame.font.Font(None, 36)
             restart_text = restart_font.render("Press R to Restart or Q to Quit",
@@ -493,7 +522,7 @@ class Game:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r and (self.game_over or self.game_won):
+                    if event.key == pygame.K_r and self.game_over:
                         self.reset_game()
                     elif event.key == pygame.K_q:
                         running = False
@@ -515,7 +544,7 @@ def main():
     print("  RIGHT = Right paddle only (go UP and turn LEFT)")
     print("  No key = Drift DOWN with current")
     print(" ")
-    print("Goal: Travel 5000m without hitting banks or obstacles!")
+    print("Goal: Pass as many obstacles as possible to score points!")
     print("Keep rowing to fight the current or you'll drift to the bottom!")
     print("If you hit the bottom of the screen, you lose!")
     print("")
