@@ -333,6 +333,15 @@ class Game:
         self.boat_img = pygame.transform.scale(self.boat_img, (CANOE_WIDTH, CANOE_HEIGHT))
         self.rock_img = pygame.transform.scale(self.rock_img, (OBSTACLE_WIDTH, OBSTACLE_HEIGHT))
 
+        # Load sound effects
+        pygame.mixer.init()
+        self.sound_game_start = pygame.mixer.Sound('sounds/game_start.mp3')
+        self.sound_game_over = pygame.mixer.Sound('sounds/game_over.mp3')
+        self.sound_point = pygame.mixer.Sound('sounds/point.mp3')
+
+        # Load background music
+        pygame.mixer.music.load('sounds/river_splashy.mp3')
+
         self.reset_game()
 
         # Paddle indicators
@@ -349,6 +358,11 @@ class Game:
         self.game_over = False
         self.game_won = False
         self.last_spawn_time = pygame.time.get_ticks()
+
+        # Play game start sound and start background music
+        self.sound_game_start.play()
+        pygame.mixer.music.set_volume(0.75)  # Set volume to 75% (25% reduction)
+        pygame.mixer.music.play(-1)  # Loop background music indefinitely
         
     def spawn_obstacle(self):
         # Get river bounds at the top of the screen where obstacles spawn
@@ -404,6 +418,9 @@ class Game:
 
         # Check if canoe hit the bottom of the screen (game over)
         if self.canoe.y + self.canoe.height >= SCREEN_HEIGHT:
+            if not self.game_over:
+                self.sound_game_over.play()
+                pygame.mixer.music.stop()  # Stop background music
             self.game_over = True
 
         # Update obstacles with river scroll
@@ -412,6 +429,7 @@ class Game:
             # Award points if obstacle passed the canoe
             if obstacle.y > self.canoe.y + self.canoe.height and not hasattr(obstacle, 'counted'):
                 self.points += 1
+                self.sound_point.play()  # Play point sound
                 obstacle.counted = True  # Mark as counted so we don't count it again
             if obstacle.is_off_screen():
                 self.obstacles.remove(obstacle)
@@ -424,10 +442,16 @@ class Game:
 
         # Check collisions with obstacles
         if self.check_collision():
+            if not self.game_over:
+                self.sound_game_over.play()
+                pygame.mixer.music.stop()  # Stop background music
             self.game_over = True
 
         # Check collision with river banks
         if self.river.check_collision(self.canoe.get_collision_rect()):
+            if not self.game_over:
+                self.sound_game_over.play()
+                pygame.mixer.music.stop()  # Stop background music
             self.game_over = True
     
     def draw(self):
