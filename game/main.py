@@ -1,6 +1,20 @@
 from .game_core import Game
+from .ble_gateway import BleGateway
+import logging.config
+import yaml
+import queue
+
+with open("game/log_config.yaml", "r") as f:
+    config = yaml.safe_load(f)
+logging.config.dictConfig(config)
+logger = logging.getLogger("root")
 
 def main():
+    # Create a queue for BLE messages
+    ble_queue = queue.Queue()
+    # Create and start the BLE gateway
+    gateway = BleGateway(ble_queue)
+    
     game = Game()
     print("=== CANOE ROWING GAME ===")
     print("Controls:")
