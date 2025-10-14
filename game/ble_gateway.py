@@ -16,7 +16,13 @@ class BleGateway:
         self.device_addresses = []
         self.running = False
         self.thread = None
-        self.clients = []
+        self.paddles = {}
+        
+        # Constants for paddle configuration
+        self.PADDLE_SERVICE_UUID = "ef680200-9b35-4933-9b10-52ffa9740042"  # Example UUID, replace with actual
+        self.PADDLE_LEFT = bytearray([0x01])
+        self.PADDLE_RIGHT = bytearray([0x02])
+        self.CONFIG_CHAR_UUID = "ef680201-9b35-4933-9b10-52ffa9740042"  # Example UUID, replace with actual
         
         self.running = True
         self.thread = threading.Thread(target=self._run_async_loop, daemon=True)
@@ -42,8 +48,8 @@ class BleGateway:
     async def _main_async(self):
         """Main async function that handles BLE connection and communication."""
         await self._scan_for_devices()
-            
-        # TODO: Connect to the devices, configure them as either left or right and start listening
+        await self._connect_to_devices()
+        await self._listen_to_paddles()
         
     async def _scan_for_devices(self, max_attempts=6, scan_timeout=2):
         """
@@ -56,9 +62,10 @@ class BleGateway:
         Raises:
             ValueError: If no devices found after all retry attempts
         """
-        
         for attempt in range(1, max_attempts + 1):
             logger.info(f"Scanning for BLE devices ({scan_timeout}s) - attempt {attempt}/{max_attempts}...")
+            # TODO: Filter by service UUID 
+            # devices = await BleakScanner.discover(timeout=scan_timeout, service_uuids=[self.PADDLE_SERVICE_UUID])
             devices = await BleakScanner.discover(timeout=scan_timeout)
                 
             if devices:
@@ -77,3 +84,41 @@ class BleGateway:
         if attempt == max_attempts:
             logger.error("Max BLE scan attempts reached, giving up")
             raise ValueError("No paddle Thingies were found")
+        
+    async def _connect_to_devices(self):
+        """Connect and configure both paddles."""
+        if len(self.device_addresses) < 2:
+            logger.warning("Expected 2 paddle devices, but found fewer")
+            raise ValueError("Not enough paddle devices found")
+        
+        # Assign first device as LEFT paddle
+        self.paddles["LEFT"] = BleakClient(self.device_addresses[0])
+        await self.paddles["LEFT"].connect()
+        # TODO: How to check if write was successful?
+        await  self.paddles["LEFT"].write_gatt_char(self.CONFIG_CHAR_UUID, self.PADDLE_LEFT, response=True)
+        
+        # Assign second device as RIGHT paddle
+        self.paddles["RIGHT"] = BleakClient(self.device_addresses[1])
+        await self.paddles["RIGHT"].connect()
+        await  self.paddles["RIGHT"].write_gatt_char(self.CONFIG_CHAR_UUID, self.PADDLE_RIGHT, response=True)
+        
+        logger.info("Connected and configured both paddles")
+        
+    async def _listen_to_paddles(self):
+        """Listen to paddle state changes from connected devices."""
+        tasks = []
+        for paddle in self.paddles:
+            # asyncio.TaskGroup() ?
+            task = asyncio.create_task(self._monitor_paddle(paddle))
+            tasks.append(task)
+        
+        if tasks:
+            await asyncio.gather(*tasks)
+    
+    # TODO: Implement actual monitoring logic
+    async def _monitor_paddle(self, paddle):
+        pass
+    
+    # TODO: Implement cleanup logic
+    async def _cleanup(self):
+        pass
