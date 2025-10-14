@@ -1,7 +1,8 @@
-from .game_core import Game
+from game.menu import Menu
 
 def main():
-    game = Game()
+    menu = Menu()
+    menu.run() 
     print("=== CANOE ROWING GAME ===")
     print("Controls:")
     print("  UP    = Both paddles (go UP)")
