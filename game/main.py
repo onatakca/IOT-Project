@@ -1,5 +1,6 @@
 from .game_core import Game
 from .ble_gateway import BleGateway
+from .ble_message import Message
 import logging.config
 import yaml
 import queue
@@ -11,13 +12,13 @@ logger = logging.getLogger("root")
 from game.menu import Menu
 
 def main():
-    # Create a queue for BLE messages
-    ble_queue = queue.Queue()
-    # Create and start the BLE gateway
-    gateway = BleGateway(ble_queue)
     
-    game = Game()
-    menu = Menu()
+    # Create and start the BLE gateway
+    message = Message()
+    gateway = BleGateway(message)
+    
+    game = Game(message)
+    menu = Menu(message)
     menu.run() 
     print("=== CANOE ROWING GAME ===")
     print("Controls:")

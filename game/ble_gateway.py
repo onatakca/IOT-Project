@@ -2,6 +2,7 @@ import asyncio
 import logging
 import threading
 from bleak import BleakClient, BleakScanner
+from .ble_message import Message
 
 logger = logging.getLogger("ble_gateway")
 
@@ -11,8 +12,8 @@ class BleGateway:
     Sends paddle state updates (left_paddle, right_paddle) to the game.
     """
     
-    def __init__(self, message_queue):
-        self.message_queue = message_queue
+    def __init__(self, message: Message):
+        self.message = message
         self.device_addresses = []
         self.running = False
         self.thread = None
@@ -102,6 +103,7 @@ class BleGateway:
         await self.paddles["RIGHT"].connect()
         await  self.paddles["RIGHT"].write_gatt_char(self.CONFIG_CHAR_UUID, self.PADDLE_RIGHT, response=True)
         
+        self.message.CONFIGURED.set()
         logger.info("Connected and configured both paddles")
         
     async def _listen_to_paddles(self):

@@ -1,11 +1,13 @@
 import pygame, os
 from .settings import *
 from .game_core import Game
+from .ble_message import Message
 
 BASE_DIR = os.path.dirname(__file__)
 
 class Menu:
-    def __init__(self):
+    def __init__(self, ble_message: Message):
+        self.ble_paddles = ble_message
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Canoe Game - Menu")

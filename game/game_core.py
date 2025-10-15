@@ -7,11 +7,14 @@ from .river import River
 from .canoe import Canoe
 from .obstacle import Obstacle
 from .paddle_indicator import PaddleIndicator
+from .ble_message import Message
 
 BASE_DIR = os.path.dirname(__file__) 
 
 class Game:
-    def __init__(self):
+    def __init__(self, ble_message: Message):
+        self.direction = ble_message
+        
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Canoe Game - IoT Demo")
