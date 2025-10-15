@@ -1,15 +1,15 @@
 from .game_core import Game
+from .menu import Menu
 from .ble_gateway import BleGateway
 from .ble_message import Message
 import logging.config
 import yaml
-import queue
+import time
 
 with open("game/log_config.yaml", "r") as f:
     config = yaml.safe_load(f)
 logging.config.dictConfig(config)
 logger = logging.getLogger("root")
-from game.menu import Menu
 
 def main():
     
