@@ -4,7 +4,7 @@ from .ble_gateway import BleGateway
 from .ble_message import Message
 import logging.config
 import yaml
-import time
+import pygame
 
 with open("game/log_config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -12,29 +12,35 @@ logging.config.dictConfig(config)
 logger = logging.getLogger("root")
 
 def main():
-    
-    # Create and start the BLE gateway
+    #create and start ble
     message = Message()
     gateway = BleGateway(message)
-    
-    game = Game(message)
-    menu = Menu(message)
-    menu.run() 
-    print("=== CANOE ROWING GAME ===")
-    print("Controls:")
-    print("  UP    = Both paddles (go UP)")
-    print("  LEFT  = Left paddle only (go UP and turn RIGHT)")
-    print("  RIGHT = Right paddle only (go UP and turn LEFT)")
-    print("  No key = Drift DOWN with current")
-    print(" ")
-    print("Goal: Pass as many obstacles as possible to score points!")
-    print("Keep rowing to fight the current or you'll drift to the bottom!")
-    print("If you hit the bottom of the screen, you lose!")
-    print("")
-    print("  R = Restart")
-    print("  Q = Quit")
-    print("=" * 50)
-    game.run()
+    try:
+        menu = Menu(message)
+        choice = menu.run()
+        #message from menu quit or start so it quits and starts from main
+        if choice == "quit":
+            return
+        elif choice == "start":
+            game = Game(message)
+
+            print("=== CANOE ROWING GAME ===")
+            print("Controls:")
+            print("  UP    = Both paddles (go UP)")
+            print("  LEFT  = Left paddle only (go UP and turn RIGHT)")
+            print("  RIGHT = Right paddle only (go UP and turn LEFT)")
+            print("  No key = Drift DOWN with current")
+            print("\nGoal: Pass as many obstacles as possible to score points!")
+            print("Keep rowing... If you hit the bottom, you lose!")
+            print("\n  R = Restart")
+            print("  Q = Quit")
+            print("open config (in theory it configures the sensors but for now press l and r to configure them and then the strat is open)")
+            print("=" * 50)
+            game.run()
+            
+    finally:
+        gateway.stop()
+        pygame.quit()
 
 if __name__ == "__main__":
     main()

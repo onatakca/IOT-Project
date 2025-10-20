@@ -47,11 +47,11 @@ class BleGateway:
 
             if device.address == self.PADDLE_LEFT:
                 logger.info(f"Left: {advertisement_data.service_data}")
-                #self.message.LEFT = 
+                self.message.LEFT = True
 
             if device.address == self.PADDLE_RIGHT:
                 logger.info(f"Right: {advertisement_data.service_data}")
-                #self.message.RIGHT = 
+                self.message.RIGHT = True
                 
             logging.info("-" * 40)
             
