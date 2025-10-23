@@ -54,6 +54,8 @@ class Game:
         self.game_won = False
         self.last_spawn_time = pygame.time.get_ticks()
 
+        self.player.score = 0
+
         # Play game start sound and start background music
         self.sound_game_start.play()
         pygame.mixer.music.set_volume(0.75)  # Set volume to 75% (25% reduction)
