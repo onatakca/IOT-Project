@@ -1,6 +1,5 @@
 import pygame
 import random
-import sys
 import os
 
 from game.player import Player
@@ -10,19 +9,74 @@ from .canoe import Canoe
 from .obstacle import Obstacle
 from .paddle_indicator import PaddleIndicator
 
-BASE_DIR = os.path.dirname(__file__) 
+BASE_DIR = os.path.dirname(__file__)
+
+# Palette for end game messages
+PALETTE = {
+    "overlay":     (0, 0, 0, 200),
+    "body":        (230, 245, 255),
+    "title":       (255, 255, 120),
+    "keycap_bg":   (30, 40, 90),
+    "keycap_fg":   (255, 255, 255),
+    "shadow":      (0, 0, 0, 120),
+}
+
+def quip_named(score: int, name: str) -> str:
+    name = (name or "Player")
+    if score == 0:            return f"Oops… looks like someone is drowning, {name}!"
+    if 1  <= score <= 4:      return f"Okay {name}, I'll need you to row harder."
+    if 5  <= score <= 10:     return f"Not bad {name}—keep the rhythm!"
+    if 11 <= score <= 20:     return f"You're finding the current, {name}!"
+    if 21 <= score <= 30:     return f"Nice flow {name}—stay sharp!"
+    if 31 <= score <= 40:     return f"Strong paddling {name}! Nearly pro!"
+    if 41 <= score <= 50:     return f"Elite rowing {name}—stone-cold!"
+    return f"Legendary. You're a river tamer, {name}!"
+
+def draw_keycap(surface, text, x, y, font):
+    cap = pygame.Rect(0, 0, 36, 36); cap.center = (x, y)
+    sh = pygame.Surface((cap.w+6, cap.h+6), pygame.SRCALPHA)
+    sh.fill(PALETTE["shadow"]); surface.blit(sh, (cap.x+2, cap.y+2))
+    pygame.draw.rect(surface, PALETTE["keycap_bg"], cap, border_radius=8)
+    pygame.draw.rect(surface, (255,255,255,50), cap, 2, border_radius=8)
+    lbl = font.render(text, True, PALETTE["keycap_fg"])
+    surface.blit(lbl, lbl.get_rect(center=cap.center))
+
+def wrap_lines(font, text, max_width):
+    words, lines, line = text.split(), [], ""
+    for w in words:
+        test = (line + " " + w) if line else w
+        if font.size(test)[0] <= max_width:
+            line = test
+        else:
+            if line: lines.append(line)
+            line = w
+    if line: lines.append(line)
+    return lines 
 
 class Game:
-    def __init__(self, player: Player):
+    def __init__(self, player: Player, settings: UserSettings = None):
         self.player = player
-        
+        self.settings = settings if settings is not None else UserSettings()
+
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Canoe Game - IoT Demo")
         self.clock = pygame.time.Clock()
 
+        # Fonts for end game messages
+        try:
+            self.title_font = pygame.font.SysFont("Impact", 74)
+            self.body_font  = pygame.font.SysFont("Bahnschrift", 36)
+            self.small_font = pygame.font.SysFont("Bahnschrift", 26)
+            self.key_font   = pygame.font.SysFont("Bahnschrift", 26)
+        except:
+            self.title_font = pygame.font.SysFont(None, 74)
+            self.body_font  = pygame.font.SysFont(None, 36)
+            self.small_font = pygame.font.SysFont(None, 26)
+            self.key_font   = pygame.font.SysFont(None, 26)
+
         # Load images and scale to game sizes
-        self.boat_img = pygame.image.load(os.path.join(BASE_DIR, 'images', 'boat.png')) .convert_alpha()
+        self.boat_img = pygame.image.load(os.path.join(BASE_DIR, 'images', 'boat.png')).convert_alpha()
         self.rock_img = pygame.image.load(os.path.join(BASE_DIR,'images','rock.png')).convert_alpha()
 
         # Scale to original game dimensions
@@ -35,14 +89,29 @@ class Game:
         self.sound_game_over = pygame.mixer.Sound(os.path.join(BASE_DIR,'sounds','game_over.mp3'))
         self.sound_point = pygame.mixer.Sound(os.path.join(BASE_DIR,'sounds','point.mp3'))
 
+        # Apply volume settings
+        sfx_vol = self.settings.sfx_vol / 100
+        self.sound_game_start.set_volume(sfx_vol)
+        self.sound_game_over.set_volume(sfx_vol)
+        self.sound_point.set_volume(sfx_vol)
+
         # Load background music
         pygame.mixer.music.load(os.path.join(BASE_DIR,'sounds','river_splashy.mp3'))
+        pygame.mixer.music.set_volume(self.settings.music_vol / 100)
+
+        # Apply difficulty settings
+        spf, spdf = difficulty_factors(self.settings.difficulty)
+        self.spawn_interval = BASE_SPAWN_INTERVAL * spf * 1000  # Convert to milliseconds
+        self.obstacle_speed = BASE_OBSTACLE_SPEED * spdf
 
         self.reset_game()
 
-        # Paddle indicators
-        self.left_indicator = PaddleIndicator(50, 20, "LEFT")
-        self.right_indicator = PaddleIndicator(SCREEN_WIDTH - 130, 20, "RIGHT")
+        # Paddle indicators (moved to bottom of screen)
+        self.left_indicator = PaddleIndicator(50, SCREEN_HEIGHT - 100, "LEFT")
+        self.right_indicator = PaddleIndicator(SCREEN_WIDTH - 130, SCREEN_HEIGHT - 100, "RIGHT")
+
+        # Player name
+        self.player_name = self.settings.player_names[0].strip() if self.settings.player_names[0].strip() else "Player 1"
 
     def reset_game(self):
         self.river = River()
@@ -131,9 +200,9 @@ class Game:
             if obstacle.is_off_screen():
                 self.obstacles.remove(obstacle)
 
-        # Spawn new obstacles
+        # Spawn new obstacles (using difficulty-based spawn interval)
         current_time = pygame.time.get_ticks()
-        if current_time - self.last_spawn_time > SPAWN_INTERVAL:
+        if current_time - self.last_spawn_time > self.spawn_interval:
             self.spawn_obstacle()
             self.last_spawn_time = current_time
 
@@ -164,41 +233,53 @@ class Game:
         for obstacle in self.obstacles:
             obstacle.draw(self.screen)
 
-        # Draw points score
-        font = pygame.font.Font(None, 48)
-        points_text = font.render(f"Points: {self.player.score}", True, WHITE)
-        text_rect = points_text.get_rect(center=(SCREEN_WIDTH // 2, 50))
-        # Add black outline for visibility
-        outline_text = font.render(f"Points: {self.player.score}", True, BLACK)
-        for offset in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
-            self.screen.blit(outline_text, (text_rect.x + offset[0], text_rect.y + offset[1]))
-        self.screen.blit(points_text, text_rect)
+        # Draw HUD score box (styled like menu buttons)
+        box = pygame.Rect(10, 10, 240, 80)
+        pygame.draw.rect(self.screen, BTN_BG,  box, border_radius=14)
+        pygame.draw.rect(self.screen, BTN_OUT, box, 2, border_radius=14)
+
+        # Name (smaller) at top of the box
+        name_surface = self.small_font.render(self.player_name, True, (25,25,25))
+        self.screen.blit(name_surface, name_surface.get_rect(center=(box.centerx, box.y + 22)))
+
+        # Score (bigger) centered lower in the box
+        score_font_hud = pygame.font.SysFont(None, 36)
+        score_surface = score_font_hud.render(str(self.player.score), True, (25,25,25))
+        self.screen.blit(score_surface, score_surface.get_rect(center=(box.centerx, box.y + 55)))
         
-        # Draw game over screen
+        # Draw game over screen with personalized message
         if self.game_over:
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(200)
-            overlay.fill(BLACK)
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill(PALETTE["overlay"])
             self.screen.blit(overlay, (0, 0))
 
-            game_over_font = pygame.font.Font(None, 72)
-            title_text = game_over_font.render("GAME OVER!", True, RED)
-            title_rect = title_text.get_rect(
-                center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
-            self.screen.blit(title_text, title_rect)
+            # Get personalized quip based on score
+            title_text = quip_named(self.player.score, self.player_name)
 
-            score_font = pygame.font.Font(None, 48)
-            score_msg = score_font.render(f"Final Score: {self.player.score} points", True, WHITE)
-            score_rect = score_msg.get_rect(
-                center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
-            self.screen.blit(score_msg, score_rect)
+            left_margin, right_margin = 60, 60
+            maxw = SCREEN_WIDTH - left_margin - right_margin
 
-            restart_font = pygame.font.Font(None, 36)
-            restart_text = restart_font.render("Press R to Restart or Q to Quit",
-                                              True, YELLOW)
-            restart_rect = restart_text.get_rect(
-                center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80))
-            self.screen.blit(restart_text, restart_rect)
+            # Headline (wrapped)
+            y = 150
+            for hl in wrap_lines(self.title_font, title_text, maxw):
+                surf = self.title_font.render(hl, True, PALETTE["title"])
+                self.screen.blit(surf, surf.get_rect(center=(SCREEN_WIDTH//2, y)))
+                y += 64
+            y += 12
+
+            # Score display
+            score_line = f"{self.player_name} — {self.player.score} pts"
+            score_surf = self.body_font.render(score_line, True, (255,255,255))
+            self.screen.blit(score_surf, score_surf.get_rect(center=(SCREEN_WIDTH//2, y)))
+            y += 50
+
+            # Keycaps near bottom
+            key_y = SCREEN_HEIGHT - 64
+            kx = SCREEN_WIDTH//2
+            draw_keycap(self.screen, "R", kx-60, key_y, self.key_font)
+            draw_keycap(self.screen, "Q", kx+60, key_y, self.key_font)
+            label = self.small_font.render("Restart              Exit to Menu", True, PALETTE["body"])
+            self.screen.blit(label, label.get_rect(center=(kx, key_y+30)))
         
         pygame.display.flip()
     
@@ -212,17 +293,21 @@ class Game:
             # Event handling
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    return "quit"
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r and self.game_over:
                         self.reset_game()
                     elif event.key == pygame.K_q:
-                        running = False
+                        if self.game_over:
+                            # During game over, Q exits to menu
+                            return "menu"
+                        else:
+                            # During gameplay, Q quits entirely
+                            return "quit"
 
             # Update and draw
             self.update(direction.direction_str, direction.left, direction.right)
             self.draw()
             self.clock.tick(FPS)
 
-        pygame.quit()
-        sys.exit()
+        return "quit"
