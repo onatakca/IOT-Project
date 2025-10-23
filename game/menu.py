@@ -1,5 +1,8 @@
 # game/menu.py
 import pygame, os
+
+from game.input_schemes import BLEScheme, KeyboardScheme
+from game.player import Player
 from .settings import *
 from .ble_message import Message
 
@@ -7,7 +10,7 @@ BASE_DIR = os.path.dirname(__file__)
 
 class Menu:
     def __init__(self, ble_message: Message):
-        self.ble_paddles = ble_message
+        self.ble_message = ble_message
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Canoe Game - Menu")
@@ -28,68 +31,97 @@ class Menu:
         # Buttons
         self.buttons = {
             "start": pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2, 200, 50),
-            "config": pygame.Rect(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2 + 80, 200, 50)
         }
 
-        self.start_enabled = False
+    def draw_buttons(self, buttons = None):
+        if buttons == None:
+            buttons = self.buttons
 
-    def draw_buttons(self):
-        for key, rect in self.buttons.items():
-            if key == "start":
-                color = (100, 100, 100) if not self.start_enabled else (0, 150, 0)
-            else:
-                color = (0, 150, 0)
+        for key, rect in buttons.items():
+            color = (0, 150, 0)
             pygame.draw.rect(self.screen, color, rect)
             text = self.small_font.render(key.capitalize(), True, (255, 255, 255))
             text_rect = text.get_rect(center=rect.center)
             self.screen.blit(text, text_rect)
 
-    def configure_sensors(self):
+    def configure_player(self):
         configuring = True
+        selected_config = "NONE"
+        player = None
+        buttons = {
+            "Paddles": pygame.Rect(SCREEN_WIDTH//4 - 100, 2*SCREEN_HEIGHT//3, 200, 50),
+            "Keyboard": pygame.Rect(3*SCREEN_WIDTH//4 - 100, 2*SCREEN_HEIGHT//3, 200, 50),
+        }
+        selected_keys = []
+
         while configuring:
             pygame.event.pump()
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_q]:
-                return "quit"
                 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "quit"
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if buttons["Paddles"].collidepoint(mouse_pos):
+                        selected_config = "PADDLES"
+                    elif buttons["Keyboard"].collidepoint(mouse_pos):
+                        selected_config = "KEYBOARD"
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        configuring = False
-                    elif event.key == pygame.K_l:
-                        self.ble_paddles.LEFT = not self.ble_paddles.LEFT
-                    elif event.key == pygame.K_r:
-                        self.ble_paddles.RIGHT = not self.ble_paddles.RIGHT 
+                    if event.key == pygame.K_k and selected_config == "NONE":
+                        selected_config = "KEYBOARD"
+                    elif event.key == pygame.K_p and selected_config == "NONE":
+                        selected_config = "PADDLES"
+                    elif event.key == pygame.K_RETURN and player != None:
+                        return "start", player
                     elif event.key == pygame.K_q:
                         return "quit"
+                    elif selected_config == "KEYBOARD":
+                        selected_keys.append(event.key)
 
             self.screen.blit(self.menu_bg, (0, 0))
 
-            t1 = self.small_font.render("Left sensor is red.", True, (255, 255, 255))
-            t2 = self.small_font.render("Right sensor is blue.", True, (255, 255, 255))
-            self.screen.blit(t1, (SCREEN_WIDTH//2 - t1.get_width()//2, SCREEN_HEIGHT//3))
-            self.screen.blit(t2, (SCREEN_WIDTH//2 - t2.get_width()//2, SCREEN_HEIGHT//3 + 40))
+            match(selected_config):
+                case("NONE"):
+                    t0 = self.small_font.render("Choose how to play:", True, (255, 255, 255))
+                    t1 = self.small_font.render("To play with paddles, press p.", True, (255, 255, 255))
+                    t2 = self.small_font.render("To play with a keyboard, press k.", True, (255, 255, 255))
+                    self.screen.blit(t0, (SCREEN_WIDTH//2 - t0.get_width()//2, SCREEN_HEIGHT//3 - 40))
+                    self.screen.blit(t1, (SCREEN_WIDTH//2 - t1.get_width()//2, SCREEN_HEIGHT//3))
+                    self.screen.blit(t2, (SCREEN_WIDTH//2 - t2.get_width()//2, SCREEN_HEIGHT//3 + 40))
+                    self.draw_buttons(buttons)
+                case("PADDLES"):
+                    if player == None:
+                        player = Player(BLEScheme(self.ble_message))
+                    t0 = self.small_font.render("Row with the left paddle to activate the left circle", True, (255, 255, 255))
+                    t1 = self.small_font.render("or row with the right paddle to activate the blue circle.", True, (255, 255, 255))
+                    t2 = self.small_font.render("To continue, press ENTER.", True, (255, 255, 255))
+                    self.screen.blit(t0, (SCREEN_WIDTH//2 - t0.get_width()//2, SCREEN_HEIGHT//3 - 40))
+                    self.screen.blit(t1, (SCREEN_WIDTH//2 - t1.get_width()//2, SCREEN_HEIGHT//3))
+                    self.screen.blit(t2, (SCREEN_WIDTH//2 - t2.get_width()//2, SCREEN_HEIGHT//3 + 40))
+                    left_ok  = bool(self.ble_message.LEFT)
+                    right_ok = bool(self.ble_message.RIGHT)
 
-            left_ok  = bool(self.ble_paddles.LEFT)
-            right_ok = bool(self.ble_paddles.RIGHT)
-            self.start_enabled = bool(left_ok and right_ok)
 
+                    # Cyrcles: at the start they are greyish and after configuring they are red and blue
+                    pygame.draw.circle(self.screen, (200, 0, 0) if left_ok else (100, 100, 100),
+                                    (SCREEN_WIDTH//2 - 120, SCREEN_HEIGHT//2), 30)
+                    ltxt = self.small_font.render("Left (Red)", True, (255, 255, 255))
+                    self.screen.blit(ltxt, (SCREEN_WIDTH//2 - 170, SCREEN_HEIGHT//2 + 50))
 
-            # Cyrcles: at the start they are greyish and after configuring they are red and blue
-            pygame.draw.circle(self.screen, (200, 0, 0) if left_ok else (100, 100, 100),
-                               (SCREEN_WIDTH//2 - 120, SCREEN_HEIGHT//2), 30)
-            ltxt = self.small_font.render("Left (Red)", True, (255, 255, 255))
-            self.screen.blit(ltxt, (SCREEN_WIDTH//2 - 170, SCREEN_HEIGHT//2 + 50))
-
-            pygame.draw.circle(self.screen, (0, 0, 200) if right_ok else (100, 100, 100),
-                               (SCREEN_WIDTH//2 + 120, SCREEN_HEIGHT//2), 30)
-            rtxt = self.small_font.render("Right (Blue)", True, (255, 255, 255))
-            self.screen.blit(rtxt, (SCREEN_WIDTH//2 + 60, SCREEN_HEIGHT//2 + 50))
-
-            back = self.small_font.render("press ESC to go back to menu", True, (200, 200, 200))
-            self.screen.blit(back, (SCREEN_WIDTH//2 - back.get_width()//2, SCREEN_HEIGHT - 80))
+                    pygame.draw.circle(self.screen, (0, 0, 200) if right_ok else (100, 100, 100),
+                                    (SCREEN_WIDTH//2 + 120, SCREEN_HEIGHT//2), 30)
+                    rtxt = self.small_font.render("Right (Blue)", True, (255, 255, 255))
+                    self.screen.blit(rtxt, (SCREEN_WIDTH//2 + 60, SCREEN_HEIGHT//2 + 50))
+                case("KEYBOARD"):
+                    if len(selected_keys) == 0:
+                        t1 = self.small_font.render("Press a key (except for q) to use as the left paddle.", True, (255, 255, 255))
+                    elif len(selected_keys) == 1:
+                        t1 = self.small_font.render("Press a key (except for q) to use as the right paddle.", True, (255, 255, 255))
+                    else:
+                        if (player == None):
+                            player = Player(KeyboardScheme(selected_keys[0], selected_keys[1]))
+                        t1 = self.small_font.render("To continue, press ENTER.", True, (255, 255, 255))
+                    self.screen.blit(t1, (SCREEN_WIDTH//2 - t1.get_width()//2, SCREEN_HEIGHT//3))
 
             pygame.display.flip()
             self.clock.tick(30)
@@ -111,27 +143,19 @@ class Menu:
                     pygame.mixer.music.stop()
                     return "quit"
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_RETURN and self.start_enabled:
-                        menu_active = False  # returns "start"
+                    if event.key == pygame.K_RETURN:
+                        menu_active = False 
                     elif event.key == pygame.K_q:
                         pygame.mixer.music.stop()
                         return "quit"
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mouse_pos = pygame.mouse.get_pos()
-                    if self.buttons["start"].collidepoint(mouse_pos) and self.start_enabled:
+                    if self.buttons["start"].collidepoint(mouse_pos):
                         menu_active = False
-                    elif self.buttons["config"].collidepoint(mouse_pos):
-                        res = self.configure_sensors()
-                        if res == "quit":
-                            pygame.mixer.music.stop()
-                            return "quit"
 
 
             title_text = self.font.render("CANOE ROWING GAME", True, (255, 255, 255))
-            if not self.start_enabled:
-                instr = "Configure sensors"
-            else:
-                instr = "Press ENTER to Start or Q to Quit"
+            instr = "Press ENTER to Start or Q to Quit"
             instr_text = self.small_font.render(instr, True, (255, 255, 0))
 
             self.screen.blit(title_text, (SCREEN_WIDTH//2 - title_text.get_width()//2, SCREEN_HEIGHT//3))
@@ -140,5 +164,6 @@ class Menu:
             pygame.display.flip()
             self.clock.tick(30)
 
+        res, player = self.configure_player()
         pygame.mixer.music.stop()
-        return "start"
+        return res, player

@@ -1,5 +1,6 @@
 import logging
 import threading
+from game.direction import Direction
 
 logger = logging.getLogger("ble_message")
 
@@ -9,13 +10,12 @@ class Message:
         self.RIGHT = False
         self.CONFIGURED = threading.Event()
         
-    def get_direction(self) -> str:
-        if self.LEFT and not self.RIGHT:
-            return "LEFT"
-        elif self.RIGHT and not self.LEFT:
-            return "RIGHT"
-        elif not self.LEFT and not self.RIGHT:
-            return "STOP"
-        else:
-            return "STRAIGHT"
-        
+    def get_direction(self) -> Direction:
+        direction = "STOP"
+        if self.LEFT and self.RIGHT:
+            direction = "STRAIGHT"
+        elif self.RIGHT:
+            direction = "LEFT"
+        elif self.LEFT:
+            direction = "RIGHT"
+        return Direction(self.LEFT, self.RIGHT, direction)

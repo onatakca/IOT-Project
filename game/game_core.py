@@ -2,18 +2,19 @@ import pygame
 import random
 import sys
 import os
+
+from game.player import Player
 from .settings import *
 from .river import River
 from .canoe import Canoe
 from .obstacle import Obstacle
 from .paddle_indicator import PaddleIndicator
-from .ble_message import Message
 
 BASE_DIR = os.path.dirname(__file__) 
 
 class Game:
-    def __init__(self, ble_message: Message):
-        self.direction = ble_message
+    def __init__(self, player: Player):
+        self.player = player
         
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -49,7 +50,6 @@ class Game:
                           SCREEN_HEIGHT // 2,  # Start at middle of screen
                           self.boat_img)
         self.obstacles = []
-        self.points = 0  # Track score by obstacles passed
         self.game_over = False
         self.game_won = False
         self.last_spawn_time = pygame.time.get_ticks()
@@ -123,7 +123,7 @@ class Game:
             obstacle.update(river_scroll_speed)
             # Award points if obstacle passed the canoe
             if obstacle.y > self.canoe.y + self.canoe.height and not hasattr(obstacle, 'counted'):
-                self.points += 1
+                self.player.score += 1
                 self.sound_point.play()  # Play point sound
                 obstacle.counted = True  # Mark as counted so we don't count it again
             if obstacle.is_off_screen():
@@ -164,10 +164,10 @@ class Game:
 
         # Draw points score
         font = pygame.font.Font(None, 48)
-        points_text = font.render(f"Points: {self.points}", True, WHITE)
+        points_text = font.render(f"Points: {self.player.score}", True, WHITE)
         text_rect = points_text.get_rect(center=(SCREEN_WIDTH // 2, 50))
         # Add black outline for visibility
-        outline_text = font.render(f"Points: {self.points}", True, BLACK)
+        outline_text = font.render(f"Points: {self.player.score}", True, BLACK)
         for offset in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
             self.screen.blit(outline_text, (text_rect.x + offset[0], text_rect.y + offset[1]))
         self.screen.blit(points_text, text_rect)
@@ -186,7 +186,7 @@ class Game:
             self.screen.blit(title_text, title_rect)
 
             score_font = pygame.font.Font(None, 48)
-            score_msg = score_font.render(f"Final Score: {self.points} points", True, WHITE)
+            score_msg = score_font.render(f"Final Score: {self.player.score} points", True, WHITE)
             score_rect = score_msg.get_rect(
                 center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
             self.screen.blit(score_msg, score_rect)
@@ -205,36 +205,7 @@ class Game:
         running = True
 
         while running:
-            # Simulate paddle states from arrow keys
-            keys = pygame.key.get_pressed()
-            up_key = keys[pygame.K_UP]
-            left_key = keys[pygame.K_LEFT]
-            right_key = keys[pygame.K_RIGHT]
-
-            # Determine paddle states and direction
-            # UP = both paddles rowing
-            # LEFT = only left paddle rowing (turns right)
-            # RIGHT = only right paddle rowing (turns left)
-            if up_key:
-                # Both paddles rowing - go straight
-                left_paddle = True
-                right_paddle = True
-                direction = "STRAIGHT"
-            elif left_key:
-                # Only left paddle - turn right
-                left_paddle = True
-                right_paddle = False
-                direction = "RIGHT"
-            elif right_key:
-                # Only right paddle - turn left
-                left_paddle = False
-                right_paddle = True
-                direction = "LEFT"
-            else:
-                # No rowing - flow back
-                left_paddle = False
-                right_paddle = False
-                direction = "STOP"
+            direction = self.player.get_direction()
 
             # Event handling
             for event in pygame.event.get():
@@ -247,7 +218,7 @@ class Game:
                         running = False
 
             # Update and draw
-            self.update(direction, left_paddle, right_paddle)
+            self.update(direction.direction_str, direction.left, direction.right)
             self.draw()
             self.clock.tick(FPS)
 

@@ -17,12 +17,12 @@ def main():
     gateway = BleGateway(message)
     try:
         menu = Menu(message)
-        choice = menu.run()
+        choice, player = menu.run()
         #message from menu quit or start so it quits and starts from main
         if choice == "quit":
             return
         elif choice == "start":
-            game = Game(message)
+            game = Game(player)
 
             print("=== CANOE ROWING GAME ===")
             print("Controls:")
