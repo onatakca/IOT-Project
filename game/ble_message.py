@@ -14,7 +14,7 @@ class Message:
         self.CONFIGURED = threading.Event()
         
     def get_direction(self) -> Direction:
-        if self.buffer > 0:
+        """ if self.buffer > 0:
             self.buffer -=1
             direction = "STOP"
         else:
@@ -34,5 +34,13 @@ class Message:
                 direction = "STOP"
                 self.buffer = 15
 
-            self.last_dir = direction
+            self.last_dir = direction"""
+            
+        direction = "STOP"
+        if self.LEFT and self.RIGHT:
+            direction = "STRAIGHT"
+        elif self.RIGHT:
+            direction = "LEFT"
+        elif self.LEFT:
+            direction = "RIGHT"
         return Direction(self.LEFT, self.RIGHT, direction)
