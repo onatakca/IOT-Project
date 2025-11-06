@@ -121,9 +121,11 @@ class Game:
         self.obstacles = []
         self.game_over = False
         self.game_won = False
-        self.last_spawn_time = pygame.time.get_ticks()
 
         self.player.score = 0
+
+        # Spawn initial obstacle to start the game
+        self.spawn_obstacle()
 
         # Play game start sound and start background music
         self.sound_game_start.play()
@@ -197,14 +199,10 @@ class Game:
                 self.player.score += 1
                 self.sound_point.play()  # Play point sound
                 obstacle.counted = True  # Mark as counted so we don't count it again
+                # Spawn next obstacle after scoring a point
+                self.spawn_obstacle()
             if obstacle.is_off_screen():
                 self.obstacles.remove(obstacle)
-
-        # Spawn new obstacles (using difficulty-based spawn interval)
-        current_time = pygame.time.get_ticks()
-        if current_time - self.last_spawn_time > self.spawn_interval:
-            self.spawn_obstacle()
-            self.last_spawn_time = current_time
 
         # Check collisions with obstacles
         if self.check_collision():
