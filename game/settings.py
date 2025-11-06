@@ -31,9 +31,9 @@ ACCENT = (40, 140, 255)
 # Game settings
 CANOE_WIDTH = 55  # Adjusted width
 CANOE_HEIGHT = 100
-CANOE_SPEED = 5
-UPSTREAM_SPEED = 3  # How fast canoe moves up when rowing
-DOWNSTREAM_DRIFT = 1.5  # How fast canoe drifts down when not rowing
+CANOE_SPEED = 1.5
+UPSTREAM_SPEED = 1.5  # How fast canoe moves up when rowing
+DOWNSTREAM_DRIFT = 0.5  # How fast canoe drifts down when not rowing
 CANOE_MAX_UP_Y = SCREEN_HEIGHT // 2  # Highest point canoe can reach (middle of screen)
 RIVER_WIDTH = 400
 OBSTACLE_WIDTH = 80
