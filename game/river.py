@@ -40,20 +40,9 @@ class River:
             self.add_segment()
 
     def add_segment(self):
-        """Add a new river segment with smooth S-curve pattern"""
-        if len(self.segments) == 0:
-            offset = 0
-        else:
-            # Create smooth S-curve using sine wave with less randomness
-            self.curve_phase += 0.02  # Smaller increment = smoother, wider curves
-            sine_offset = math.sin(self.curve_phase) * 100  # Amplitude of 100
-            random_variation = random.uniform(-5, 5)  # Less randomness for smoother curves
-            offset = sine_offset + random_variation
-
-            # Keep the river from going too far off center
-            max_offset = 120
-            offset = max(min(offset, max_offset), -max_offset)
-
+        """Add a new river segment (straight banks for lane-based gameplay)"""
+        # Always use 0 offset for straight banks
+        offset = 0
         self.segments.append(offset)
 
     def update(self, speed):
@@ -71,14 +60,8 @@ class River:
         # Scrolling backward (river moves up on screen)
         while self.scroll_offset < 0:
             self.scroll_offset += self.segment_height
-            # Add segment at the beginning - continue the S-curve pattern
-            self.curve_phase -= 0.02  # Go backwards in the curve
-            sine_offset = math.sin(self.curve_phase) * 100
-            random_variation = random.uniform(-5, 5)
-            offset = sine_offset + random_variation
-            max_offset = 120
-            offset = max(min(offset, max_offset), -max_offset)
-
+            # Add straight segment at the beginning
+            offset = 0
             self.segments.insert(0, offset)
             # Remove from end to keep list size reasonable
             if len(self.segments) > 200:

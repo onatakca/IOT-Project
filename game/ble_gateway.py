@@ -40,19 +40,18 @@ class BleGateway:
         finally:
             loop.close()
         
-    # TODO: Forward the data through the message object to the game
     async def _listen_to_paddles(self):
         """Listen to paddle state changes."""
         def callback(device, advertisement_data):
 
             if device.address == self.PADDLE_LEFT:
-                logger.info(f"Left: {advertisement_data.service_data}")
-                self.message.LEFT = True
+                logger.info(f"Left paddle detected: {advertisement_data.service_data}")
+                self.message.set_left_paddle()
 
             if device.address == self.PADDLE_RIGHT:
-                logger.info(f"Right: {advertisement_data.service_data}")
-                self.message.RIGHT = True
-                
+                logger.info(f"Right paddle detected: {advertisement_data.service_data}")
+                self.message.set_right_paddle()
+
             logging.info("-" * 40)
             
         scanner = BleakScanner(detection_callback=callback, service_uuids=[self.PADDLE_SERVICE_UUID])
