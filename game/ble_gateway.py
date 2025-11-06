@@ -43,15 +43,22 @@ class BleGateway:
     async def _listen_to_paddles(self):
         """Listen to paddle state changes."""
         def callback(device, advertisement_data):
-
+            paddle_data = str(advertisement_data.service_data[self.PADDLE_SERVICE_UUID])
+            
             if device.address == self.PADDLE_LEFT:
-                logger.info(f"Left paddle detected: {advertisement_data.service_data}")
-                self.message.set_left_paddle()
+                logger.info(f"Left: {advertisement_data.service_data}")
+                if "row" in paddle_data:
+                    self.message.LEFT = True
+                else:
+                    self.message.LEFT = False
 
             if device.address == self.PADDLE_RIGHT:
-                logger.info(f"Right paddle detected: {advertisement_data.service_data}")
-                self.message.set_right_paddle()
-
+                logger.info(f"Right: {advertisement_data.service_data}")
+                if "row" in paddle_data:
+                    self.message.RIGHT = True
+                else:
+                    self.message.RIGHT = False
+                
             logging.info("-" * 40)
             
         scanner = BleakScanner(detection_callback=callback, service_uuids=[self.PADDLE_SERVICE_UUID])
