@@ -27,6 +27,7 @@ If requirements are missing, you can download them through requirements.txt
 python -m game.main
 
 
+## Raspberry Pi Credentials
 
-
-
+Username: ut
+Password: utasd123
